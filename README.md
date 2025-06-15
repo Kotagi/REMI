@@ -144,6 +144,8 @@ readme_generator.py
 
 ### `src\run_robot_brain.py`
 **Functions:**
+- `schedule_background_tasks(interval_hours)`  
+  Periodically decay and flag old memories for summarization.
 - `ask_model(prompt)`  
   Send the user prompt to the OpenAI Chat API and return the assistant's reply.
 - `speak(text)`  
