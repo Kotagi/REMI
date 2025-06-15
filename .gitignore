@@ -1,14 +1,33 @@
 # Python
 __pycache__/
 *.py[cod]
+
 # Virtual environment
 robot_env/
 
 # Model binaries
 models/
 
-# Recorded audio
-data/audio/
+# Data (including your SQLite DBs, audio dumps, etc.)
+data/
 
-# API key
+# API keys
 configs/api_key/openai_key.txt
+
+# Temp files & logs
+temp/
+*.log
+
+# Database files (just in case)
+*.db
+*.sqlite3
+
+# Editor/project files you probably don’t want
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# pytest artifacts
+.pytest_cache/

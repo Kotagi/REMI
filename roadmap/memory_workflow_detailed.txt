@@ -1,0 +1,113 @@
+
+REMI Memory Module - Detailed Workflow
+======================================
+
+1. User Interaction & Perception
+--------------------------------
+1. Wake / Idle
+   - REMI idles, listening passively for sound.
+   - Working Memory holds up to 5 recent items (utterances + thoughts).
+
+2. Audio Capture
+   - record_audio(): opens mic buffer until silence threshold or push-to-talk.
+   - Saves raw audio chunk in RAM and optionally to data/audio/.
+
+3. Transcription
+   - transcribe_audio(): feeds buffer into faster-whisper for ASR.
+   - Returns transcript string.
+
+2. Memory Retrieval & Injection
+------------------------------
+1. Query Trigger
+   - Immediately after transcription, invoke query_memories(transcript, top_k=5).
+
+2. Scoring Candidate Memories
+   - Fetch candidates: active LTM entries (episodic/semantic/summary) + working memory items.
+   - Compute for each entry m:
+     • Recency Score = exp(-Δt / τ_recency), τ_recency ≈ 7 days.
+     • Semantic Similarity = cosine(encode(m.content), encode(transcript)).
+     • Emotion Congruence = cosine(m.emotions_vector, REMI.current_mood_vector).
+   - Combine: score = 0.4*Recency + 0.5*Similarity + 0.1*Emotion.
+
+3. Select Top Memories
+   - Filter entries with score ≥ 0.5.
+   - Sort descending by score; take up to 5.
+
+4. Auto-Rehearse
+   - For each selected m with Similarity ≥ 0.7:
+     • If m.emotion_score ≥ 0.8: ensure m.strength ≥ 0.3.
+     • Else: m.strength = min(1.0, m.strength + Δ_strength).
+   - Update m.strength in SQLite.
+
+5. Context Injection
+   - Summarize selected memories into a prompt block:
+     > "I recall that on June 14 you loved shumai in Da Nang; you said your favorite food is now Macaroni and Cheese; and last time we spoke, I told you my motor_control stub uses PWM."
+   - Insert this block into the system prompt before the user's transcript.
+
+3. LLM Invocation & Response
+----------------------------
+1. Construct Prompt: system prompt + injected memories + user transcript.
+2. ask_model(): run LLM, get response_text.
+3. speak(response_text) via pyttsx3 or chosen TTS.
+4. Working Memory Update:
+   - Append (user_transcript, response_text) to working memory.
+   - If working memory > 5 items, drop oldest.
+
+4. New Memory Creation
+----------------------
+1. Decide What to Store:
+   - Always store user transcript + REMI reply as episodic memory.
+   - If transcript expresses a fact, add semantic memory.
+   - If query is instructional, store procedural memory.
+
+2. Assign Emotional Vector:
+   - Compute emotions_json (12 emotions).
+   - emotion_score = max(emotions_json.values()).
+
+3. Initialize Strength:
+   - strength = 1.0.
+   - If emotion_score ≥ 0.8, set strength_floor=0.3.
+
+4. Insert into SQLite:
+   - Write timestamp, category, strength, emotion_score, emotions_json, content, tags_json, is_archived=0, superseded_by=NULL.
+
+5. Background Decay & Pruning Tasks
+------------------------------------
+Run asynchronously on a scheduler (hourly/daily):
+
+1. Decay Phase:
+   - For each active memory m:
+     • Δt = time since last update.
+     • τ = 12h if age < 48h, else τ = 14d.
+     • m.strength *= exp(-Δt / τ), but m.strength ≥ strength_floor if emotion_score ≥ 0.8.
+   - Update m.strength in DB.
+
+2. Flag for Summarization:
+   - Find m where strength < 0.1 and emotion_score < 0.8 and is_archived = 0.
+   - Mark is_archived = 2.
+
+3. Weekly Summarization Job:
+   - Fetch entries where is_archived = 2.
+   - Batch summarize via local LLM:
+     > "Please write a concise summary of these experiences..."
+   - Insert summary as new category="summary" memory with averaged emotion and strength=0.5.
+   - Set originals is_archived = 1.
+   - Optionally delete is_archived = 1 rows after 6+ months.
+
+6. Historical Queries & Conflict Handling
+-----------------------------------------
+1. Superseding Facts:
+   - On contradiction, create new memory and set old.superseded_by = new.id.
+
+2. Default Fact Retrieval:
+   - Filter out superseded entries for current facts.
+
+3. Historical Retrieval:
+   - If user asks recall of old preferences, include entries with superseded_by IS NOT NULL.
+
+Diagrammatic Flow:
+------------------
+record_audio --> transcribe_audio --> query_memories --> inject_memories --> ask_model --> speak --> add_memory --> working_memory_update
+
+Background:
+   decay_memories --> flag_for_summarization --> weekly_summarize

@@ -16,12 +16,19 @@ configs/
   ├─ api_key/
 data/
   ├─ audio/
+  ├─ memory/
 instructions/
 models/
+roadmap/
 src/
   ├─ __init__.py
   ├─ audio_io.py
+  ├─ memory.py
   ├─ run_robot_brain.py
+temp/
+tests/
+  ├─ conftest.py
+  ├─ test_memory.py
 blank.py
 readme_generator.py
 ```
@@ -29,6 +36,8 @@ readme_generator.py
 ## Dependencies
 
 **requirements.txt:**
+- `annotated-types==0.7.0`
+- `anyio==4.9.0`
 - `av==14.4.0`
 - `certifi==2025.6.15`
 - `cffi==1.17.1`
@@ -38,34 +47,58 @@ readme_generator.py
 - `comtypes==1.4.11`
 - `ctranslate2==4.6.0`
 - `diskcache==5.6.3`
+- `distro==1.9.0`
 - `faster-whisper==1.1.1`
 - `filelock==3.18.0`
 - `flatbuffers==25.2.10`
 - `fsspec==2025.5.1`
 - `gpt4all==2.8.2`
+- `h11==0.16.0`
+- `httpcore==1.0.9`
+- `httpx==0.28.1`
 - `huggingface-hub==0.33.0`
 - `humanfriendly==10.0`
 - `idna==3.10`
+- `iniconfig==2.1.0`
 - `Jinja2==3.1.6`
+- `jiter==0.10.0`
+- `joblib==1.5.1`
 - `llama_cpp_python==0.3.9`
 - `MarkupSafe==3.0.2`
 - `mpmath==1.3.0`
+- `networkx==3.5`
 - `numpy==2.3.0`
 - `onnxruntime==1.22.0`
+- `openai==1.86.0`
 - `packaging==25.0`
+- `pillow==11.2.1`
+- `pluggy==1.6.0`
 - `protobuf==6.31.1`
 - `pycparser==2.22`
+- `pydantic==2.11.7`
+- `pydantic_core==2.33.2`
+- `Pygments==2.19.1`
 - `pypiwin32==223`
 - `pyreadline3==3.5.4`
+- `pytest==8.4.0`
 - `pyttsx3==2.98`
 - `pywin32==310`
 - `PyYAML==6.0.2`
+- `regex==2024.11.6`
 - `requests==2.32.4`
+- `safetensors==0.5.3`
+- `scikit-learn==1.7.0`
 - `scipy==1.15.3`
+- `sentence-transformers==4.1.0`
+- `sniffio==1.3.1`
 - `sounddevice==0.5.2`
 - `sympy==1.14.0`
+- `threadpoolctl==3.6.0`
 - `tokenizers==0.21.1`
+- `torch==2.7.1`
 - `tqdm==4.67.1`
+- `transformers==4.52.4`
+- `typing-inspection==0.4.1`
 - `typing_extensions==4.14.0`
 - `urllib3==2.4.0`
 
@@ -85,6 +118,29 @@ readme_generator.py
   Records `duration` seconds and saves to data/audio/filename.
 - `transcribe_audio(filename)`  
   Runs Whisper on the given file and returns the transcript.
+
+### `src\memory.py`
+**Functions:**
+- `initialize_memory_store(db_path)`  
+  Create/connect to the SQLite DB at db_path and ensure tables exist.
+- `load_encoder()`  
+  Auto-select a SentenceTransformer encoder based on hardware availability.
+- `add_memory(db_path, content, category, emotions, tags, supersedes, model_name)`  
+  Insert a new memory record with initial strength=1.0 and emotion fields.
+- `get_recent(db_path, n)`  
+  Fetch the last n active, unsuperseded memories ordered by timestamp descending.
+- `query_memories(db_path, query, top_k, min_score, include_archived, historical)`  
+  Retrieve relevant memories scored by recency, semantic similarity,
+- `decay_memories(db_path)`  
+  Apply two-phase exponential decay to all active memories.
+- `flag_for_summarization(db_path)`  
+  Flag memories for summarization: low strength and low emotion.
+- `local_summarize(texts)`  
+  Summarize a list of memory contents via the local LLM.
+- `summarize_flagged(db_path)`  
+  Batch-summarize flagged memories and archive originals.
+- `reembed_memories(db_path, model_name)`  
+  Recompute embeddings for all active memories with a new encoder.
 
 ### `src\run_robot_brain.py`
 **Functions:**

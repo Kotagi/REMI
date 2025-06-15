@@ -1,0 +1,99 @@
+
+REMI Memory Module - High-Level Design Summary
+==============================================
+
+1. Memory Types
+---------------
+- Working Memory:
+  • Capacity: 5 items (user utterances or REMI thoughts)
+  • Purpose: Short-term context buffer, cleared or aged each turn.
+
+- Long-Term Memory:
+  • Episodic Memory: Timestamped events and experiences.
+  • Semantic Memory: Decontextualized facts and concepts.
+  • Procedural Memory: How-to knowledge (code/process snippets).
+  • Summary Memory: High-level condensed summaries of old memories.
+
+2. Storage Backend & Embeddings
+-------------------------------
+- Primary Storage: SQLite database with tables:
+  • memories: id, timestamp, category, strength, emotion_score,
+    emotions_json, content, tags_json, is_archived, superseded_by
+- Embeddings:
+  • Prototype: sentence-transformers/all-MiniLM-L6-v2 (MiniLM) for CPU.
+  • Phase 2: Switch to all-mpnet-base-v2 on GPU (RTX 2060).
+  • Model auto-selection: Detect torch.cuda.is_available() to choose encoder.
+  • Namespace embeddings by model name to avoid mixing vector spaces.
+  • Re-embed active memories on model switch if needed.
+
+3. Emotion Modeling
+-------------------
+- Discrete Emotion Vector (12 emotions):
+  Joy, Trust, Fear, Surprise, Sadness, Disgust,
+  Anger, Anticipation, Shame, Guilt, Pride, Embarrassment.
+- Emotion Score: maximum value among the 12 for quick filtering.
+- Persistent Floor:
+  • If any emotion ≥ 0.8, memory strength never drops below 0.3.
+
+4. Forgetting Curve & Pruning
+-----------------------------
+- Decay Model:
+  1. Short-term phase: half-life = 12 hours (first 48 hours).
+  2. Long-term phase: half-life = 14 days thereafter.
+- Auto-Rehearsal:
+  • Retrieved memories with relevance > 0.7 get strength bumped.
+- Summarization Trigger:
+  • Memories with strength < 0.1 and emotion_score < 0.8 flagged.
+- Summarization Process:
+  • Weekly batch job uses local LLM to create concise summary.
+  • Insert summary as category="summary"; archive/delete originals.
+- Archival / Deletion:
+  • Soft-archive via is_archived flag.
+  • Optionally delete after extended forgotten period (e.g., 6 months).
+
+5. Retrieval Logic
+------------------
+- Hybrid Scoring:
+  • Recency (weight 0.4)
+  • Semantic similarity (weight 0.5)
+  • Emotion congruence (weight 0.1)
+- Retrieve top 5 memories with score ≥ 0.5.
+- Emotion match computed via cosine similarity between REMI's mood vector 
+  and memory's emotion vector.
+
+6. Brain Loop Integration
+-------------------------
+1. record_audio()
+2. transcribe_audio()
+3. query_memories(transcript, top_k=5)
+4. inject retrieved memories summary into system prompt.
+5. ask_model() for reply.
+6. speak(reply)
+7. add_memory() new interaction.
+8. background tasks: decay_memories(), flag_for_summarization().
+
+- Clarification: If top memory relevance < 0.6, REMI may ask a follow-up:
+  “I recall something about that—can you remind me?”
+
+7. Procedural Memory Handling
+-----------------------------
+- Category "procedural" for how-to entries.
+- Implicit intent detection on user queries:
+  • If instructional intent, query procedural memories.
+- Natural phrasing in responses.
+- Separate retrieval (default excludes procedural unless prompted).
+
+8. Conflict Resolution
+----------------------
+- Superseded Memory:
+  • On fact update, create new memory (T2) and mark old as superseded_by.
+- Default queries return most recent unsuperseded entry.
+- Historical queries fetch superseded entries.
+
+9. Additional Considerations
+----------------------------
+- Privacy/Security: Not prioritized; all local.
+- Versioning: Include model_name and schema versions for future migrations.
+- Embedding maintenance: Re-embed active memories when switching encoder model.
+
+This summary encapsulates the high-level design decisions for REMI’s memory module.
