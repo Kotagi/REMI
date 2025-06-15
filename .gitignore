@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.py[cod]
+# Virtual environment
+robot_env/
+
+# Model binaries
+models/
+
+# Recorded audio
+data/audio/
+
+# API key
+configs/api_key/openai_key.txt

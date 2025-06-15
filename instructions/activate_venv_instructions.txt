@@ -1,0 +1,19 @@
+Command Prompt Virtual Environment Activation
+----------------------------------------------------
+
+1. Open Command Prompt.
+2. Change into your project directory, e.g.:
+   cd C:\Users\YourName\Projects\robot
+
+3. Activate the virtual environment by typing:
+   robot_env\Scripts\activate.bat
+   or simply:
+   robot_env\Scripts\activate
+
+4. You’ll see your prompt switch to something like:
+   (robot_env) C:\Users\YourName\Projects\robot>
+
+5. To deactivate the environment later, run:
+   deactivate
+
+Now any `python` or `pip install` commands you execute will run inside the `robot_env` sandbox.

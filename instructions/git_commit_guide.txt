@@ -1,0 +1,109 @@
+Git Future Commits Guide
+========================
+
+This guide covers common Git commands and best practices for making future commits to your repository.
+
+1. Check status
+---------------
+   `git status`
+   - See which files have changed, are staged, or untracked.
+   - Always run before staging or committing.
+
+2. Review changes
+-----------------
+   `git diff`
+   - View unstaged changes in your working directory.
+   `git diff --staged`
+   - View changes that are staged for commit.
+
+3. Stage files
+--------------
+   `git add <file1> <file2> ...`
+   - Stage specific files for the next commit.
+   `git add .`
+   - Stage all changes in the current directory.
+   - Use selectively to keep commits focused.
+
+4. Commit changes
+-----------------
+   `git commit -m "Short summary of changes"`
+   - Create a new commit with a brief message.
+   - For more detail, omit `-m` to open your editor:
+     ```
+     git commit
+     ```
+     Then write:
+       - A concise 50‑character summary on the first line.
+       - A blank line.
+       - A detailed explanation in the body (wrapped at ~72 characters).
+
+5. View commit history
+----------------------
+   `git log`
+   - Shows commit hashes, authors, dates, and messages.
+   `git log --oneline --graph --decorate`
+   - Compact, visual view of history.
+
+6. Update remote
+----------------
+   `git push origin <branch>`
+   git push -u origin main
+   - Push your local commits to the remote repository.
+   `git push`
+   - If your branch tracks a remote, this suffices.
+
+7. Incorporate remote changes
+-----------------------------
+   `git pull`
+   - Fetch and merge changes from the remote branch.
+   `git fetch`
+   - Download updates without merging.
+   `git merge origin/<branch>`
+   - Merge fetched changes.
+
+8. Branch operations
+--------------------
+   `git branch`
+   - List local branches.
+   `git branch <name>`
+   - Create a new branch.
+   `git checkout <name>`
+   - Switch to another branch.
+   `git checkout -b <name>`
+   - Create AND switch to a new branch.
+   `git merge <branch>`
+   - Merge <branch> into your current branch.
+
+9. Undo or revise
+-----------------
+   `git reset HEAD <file>`
+   - Unstage a file.
+   `git checkout -- <file>`
+   - Discard unstaged changes in a file.
+   `git revert <commit>`
+   - Create a new commit that undoes the changes of an earlier commit.
+
+10. Ignore files
+----------------
+    - Add patterns to `.gitignore` to prevent tracking logs, venv folders, etc.
+    - Example:
+      ```
+      __pycache__/
+      robot_env/
+      *.log
+      ```
+
+11. Tagging and releases
+------------------------
+    `git tag -a v1.0 -m "Release version 1.0"`
+    - Annotated tag for versioning.
+    `git push origin v1.0`
+    - Share tags with the remote.
+
+Best Practices
+==============
+- **Small, atomic commits**: Tackle one change or feature per commit.
+- **Descriptive messages**: Use the imperative mood ("Add feature", "Fix bug").
+- **Commit often**: Save progress and make rollbacks easier.
+- **Branch per feature/bug**: Keep main branch stable; merge with pull requests.
+- **Review before commit**: Use `git diff` and `git status`.
