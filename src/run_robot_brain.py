@@ -1,10 +1,18 @@
 # src/run_robot_brain.py
 
 import os
+import threading
 import pyttsx3
 import openai
 
 from .audio_io import record_audio, transcribe_audio
+from .memory import (
+    initialize_memory_store,
+    query_memories,
+    add_memory,
+    decay_memories,
+    flag_for_summarization
+)
 
 # ─── Locate & Load OpenAI API Key ─────────────────────────────────────────────────
 # Project root is one level above src/
@@ -33,6 +41,26 @@ if not api_key:
 
 openai.api_key = api_key
 
+# ─── Memory Database Initialization & Background Tasks ────────────────────────────
+# Path for REMI’s memory store
+DB_PATH = os.path.join(project_root, "data", "memory", "remi_memory.db")
+initialize_memory_store(DB_PATH)
+
+def schedule_background_tasks(interval_hours: float = 1.0):
+    """
+    Periodically decay and flag old memories for summarization.
+    Runs every `interval_hours` hours in a background thread.
+    """
+    # 1) Decay memory strengths
+    decay_memories(DB_PATH)
+    # 2) Flag weak/unemotional memories for summarization
+    flag_for_summarization(DB_PATH)
+    # 3) Reschedule
+    threading.Timer(interval_hours * 3600, schedule_background_tasks, args=[interval_hours]).start()
+
+# Kick off the hourly background job
+schedule_background_tasks()
+
 # ─── Model Query ────────────────────────────────────────────────────────────────────
 def ask_model(prompt: str) -> str:
     """
@@ -40,9 +68,9 @@ def ask_model(prompt: str) -> str:
     """
     completion = openai.chat.completions.create(
         model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}],
+        messages=[{"role": "system", "content": prompt}],
         temperature=0.7,
-        max_tokens=128
+        max_tokens=256
     )
     return completion.choices[0].message.content.strip()
 
@@ -58,23 +86,36 @@ def speak(text: str):
 
 # ─── Main Loop ─────────────────────────────────────────────────────────────────────
 def main():
-    print("Robot brain starting. Press Ctrl+C to exit.")
+    print("REMI brain starting. Press Ctrl+C to exit.")
     while True:
-        # 1) Record and save audio
+        # 1) Record and save audio (3s by default)
         wav_path = record_audio(filename="input.wav", duration=3)
 
         # 2) Transcribe the recorded file
         user_input = transcribe_audio(wav_path)
         if not user_input.strip():
-            print("No speech detected.")
+            print("No speech detected, listening again…")
             continue
 
-        # 3) Get the model’s response
-        response = ask_model(user_input)
-        print("Bot:", response)
+        # 3) Retrieve relevant memories
+        memories = query_memories(DB_PATH, user_input, top_k=5)
+        # Build a context block from those memories
+        mem_block = ""
+        for item in memories:
+            entry = item["entry"]
+            mem_block += f"[On {entry.timestamp.date()}] You said: \"{entry.content}\".\n"
+        
+        # 4) Ask the model, injecting memory context
+        prompt = mem_block + "\nUser: " + user_input
+        response = ask_model(prompt)
+        print("REMI:", response)
 
-        # 4) Speak the response aloud
+        # 5) Speak the response aloud
         speak(response)
+
+        # 6) Store this turn as new episodic memories
+        add_memory(DB_PATH, f"User: {user_input}",   category="episodic", emotions={})
+        add_memory(DB_PATH, f"REMI: {response}",     category="episodic", emotions={})
 
 if __name__ == "__main__":
     main()
